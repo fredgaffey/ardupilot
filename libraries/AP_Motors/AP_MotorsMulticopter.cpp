@@ -254,6 +254,13 @@ const AP_Param::GroupInfo AP_MotorsMulticopter::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("IDLE_SEC", 45, AP_MotorsMulticopter, _idle_time_delay_s, 0),
 
+    // @Param: 3D_ENABLE
+    // @DisplayName: reversible (3D) ESC output enable
+    // @Description: EXPERIMENTAL: when enabled, motor outputs are bipolar about 1500us for reversible (DShot 3D mode) ESCs: 1000 full reverse, 1500 stop, 2000 full forward. Every motor ESC must be configured for 3D mode first; enabling this with normal ESCs, or leaving it disabled with 3D ESCs, is dangerous.
+    // @Values: 0:Disabled,1:Enabled
+    // @User: Advanced
+    AP_GROUPINFO("3D_ENABLE", 46, AP_MotorsMulticopter, _mot_3d_enable, 0),
+
     AP_GROUPEND
 };
 
@@ -268,6 +275,11 @@ AP_MotorsMulticopter::AP_MotorsMulticopter(uint16_t speed_hz) :
 // output - sends commands to the motors
 void AP_MotorsMulticopter::output()
 {
+    // reversed thrust must not persist through a disarm
+    if (!armed()) {
+        _thrust_reversed = false;
+    }
+
     // update throttle filter
     update_throttle_filter();
 
@@ -457,6 +469,14 @@ void AP_MotorsMulticopter::Log_Write()
 int16_t AP_MotorsMulticopter::output_to_pwm(float actuator)
 {
     float pwm_output;
+    if (is_3d_enabled()) {
+        // reversible (3D) ESCs: 1500 means stop. Never emit pwm_min, which
+        // a 3D ESC reads as full reverse - including in SHUT_DOWN
+        if (_spool_state == SpoolState::SHUT_DOWN) {
+            return 1500;
+        }
+        return 1500 + (_thrust_reversed ? -500.0f : 500.0f) * actuator;
+    }
     if (_spool_state == SpoolState::SHUT_DOWN) {
         // in shutdown mode, use PWM 0 or minimum PWM
         if (_disarm_disable_pwm && !armed()) {

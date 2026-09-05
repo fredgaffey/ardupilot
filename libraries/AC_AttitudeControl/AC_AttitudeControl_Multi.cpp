@@ -364,6 +364,12 @@ void AC_AttitudeControl_Multi::update_althold_lean_angle_max(float throttle_in)
 
 void AC_AttitudeControl_Multi::set_throttle_out(float throttle_in, bool apply_angle_boost, float filter_cutoff)
 {
+    // reversible-thrust support: negative throttle_in means reversed thrust.
+    // The motors receive the magnitude plus a direction flag (the flag is
+    // ignored unless MOT_3D_ENABLE is set)
+    _motors.set_thrust_reversed(is_negative(throttle_in));
+    throttle_in = fabsf(throttle_in);
+
     _throttle_in = throttle_in;
     update_althold_lean_angle_max(throttle_in);
     _motors.set_throttle_filter_cutoff(filter_cutoff);

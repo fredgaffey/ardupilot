@@ -15,13 +15,26 @@ void ModeAcro::run()
 
     // Determine desired spool state based on pilot throttle input.
     // The setter enforces that disarmed aircraft are held at SHUT_DOWN until armed.
-    if (copter.ap.throttle_zero) {
+    if (copter.ap.throttle_zero && !motors->is_3d_enabled()) {
         motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::GROUND_IDLE);
     } else {
         motors->set_desired_spool_state(AP_Motors::DesiredSpoolState::THROTTLE_UNLIMITED);
     }
 
-    float pilot_desired_throttle = get_pilot_desired_throttle();
+    float pilot_desired_throttle;
+    if (motors->is_3d_enabled()) {
+        // 3D/reversible throttle: the stick is bipolar about centre.
+        // centre = zero thrust, top = full forward, bottom = full reverse
+        const float thr = (constrain_int16(channel_throttle->get_control_in(), 0, 1000) - 500) * 0.002f;
+        const float dz = 0.1f;   // stick deadzone about centre
+        if (fabsf(thr) < dz) {
+            pilot_desired_throttle = 0.0f;
+        } else {
+            pilot_desired_throttle = (thr - copysignf(dz, thr)) / (1.0f - dz);
+        }
+    } else {
+        pilot_desired_throttle = get_pilot_desired_throttle();
+    }
 
     switch (motors->get_spool_state()) {
     case AP_Motors::SpoolState::SHUT_DOWN:
@@ -79,6 +92,9 @@ bool ModeAcro::init(bool ignore_checks)
 
 void ModeAcro::exit()
 {
+    // never hand reversed thrust to the next mode
+    motors->set_thrust_reversed(false);
+
     if (!disable_air_mode_reset && (g2.acro_options.get() & uint8_t(AcroOptions::AIR_MODE))) {
         copter.air_mode = AirMode::AIRMODE_DISABLED;
     }

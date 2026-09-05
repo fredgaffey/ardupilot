@@ -28,6 +28,11 @@
 class AP_MotorsMulticopter : public AP_Motors {
 public:
 
+    // 3D/reversible-thrust support
+    void                set_thrust_reversed(bool reversed) override { _thrust_reversed = reversed && is_3d_enabled(); }
+    bool                is_3d_enabled() const override { return _mot_3d_enable != 0; }
+
+
     // Constructor
     AP_MotorsMulticopter(uint16_t speed_hz = AP_MOTORS_SPEED_DEFAULT);
 
@@ -191,6 +196,8 @@ protected:
     AP_Float            _throttle_hover;        // estimated throttle required to hover throttle in the range 0 ~ 1
     AP_Int8             _throttle_hover_learn;  // enable/disabled hover thrust learning
     AP_Int8             _disarm_disable_pwm;    // disable PWM output while disarmed
+    AP_Int8             _mot_3d_enable;         // EXPERIMENTAL: bipolar output about 1500 for reversible (3D) ESCs
+    bool                _thrust_reversed;       // true while commanded thrust is reversed
 
     // Maximum lean angle of yaw servo in degrees. This is specific to tricopter
     AP_Float            _yaw_servo_angle_max_deg;

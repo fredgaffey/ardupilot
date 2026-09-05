@@ -215,14 +215,19 @@ void AP_MotorsMatrix::output_armed_stabilizing()
     // apply voltage and air pressure compensation
     const float compensation_gain = thr_lin.get_compensation_gain(); // compensation for battery voltage and altitude
 
-    // pitch thrust input value, +/- 1.0
-    const float roll_thrust = (_roll_in + _roll_in_ff) * compensation_gain;
+    // reversed thrust: the mixer below works with the thrust magnitude, so
+    // roll/pitch/yaw demands are negated on the way in and output_to_pwm()
+    // reverses the outputs; the two negations give correctly signed motor thrust
+    const float rev_sign = _thrust_reversed ? -1.0f : 1.0f;
 
     // pitch thrust input value, +/- 1.0
-    const float pitch_thrust = (_pitch_in + _pitch_in_ff) * compensation_gain;
+    const float roll_thrust = (_roll_in + _roll_in_ff) * compensation_gain * rev_sign;
+
+    // pitch thrust input value, +/- 1.0
+    const float pitch_thrust = (_pitch_in + _pitch_in_ff) * compensation_gain * rev_sign;
 
     // yaw thrust input value, +/- 1.0
-    float yaw_thrust = (_yaw_in + _yaw_in_ff) * compensation_gain;
+    float yaw_thrust = (_yaw_in + _yaw_in_ff) * compensation_gain * rev_sign;
 
     // throttle thrust input value, 0.0 - 1.0
     float throttle_thrust = get_throttle() * compensation_gain;

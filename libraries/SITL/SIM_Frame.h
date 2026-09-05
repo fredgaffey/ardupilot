@@ -147,6 +147,9 @@ private:
         // bluff body drag scaling
         AP_Float bbdrag_coef;
 
+        // mask of motors driven by reversible (3D-mode) ESCs
+        AP_Int32 rev_mask;
+
         // if zero value will be estimated from mass
         Vector3f moment_of_inertia;
 

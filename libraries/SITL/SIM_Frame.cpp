@@ -167,6 +167,11 @@ const AP_Param::GroupInfo Frame::var_info[] = {
     // @Description: scaling of the bluff body drag derived from the reference test, zero for no bluff body drag. Defaults to zero on planes where the plane model handles drag
     AP_GROUPINFO("BBDRAG", 21, Frame, model.bbdrag_coef, SIM_FRAME_BBDRAG_DEFAULT),
 
+    // @Param: REV_MSK
+    // @DisplayName: reversible motor mask
+    // @Description: mask of motors driven by reversible (3D-mode) ESCs, where PWM is bipolar about 1500 (1000 full reverse, 1500 stop, 2000 full forward)
+    AP_GROUPINFO("REV_MSK", 22, Frame, model.rev_mask, 0),
+
     AP_GROUPEND
 };
 #endif // AP_SIM_ENABLED
@@ -815,7 +820,7 @@ void Frame::update_parameters(void)
         motors[i].setup_params(model.pwmMin.get(), model.pwmMax.get(), model.spin_min, model.spin_max, model.propExpo, model.slew_max,
                                model.diagonal_size, power_factor, model.maxVoltage, effective_prop_area, velocity_max,
                                model.motor_pos[i], model.motor_thrust_vec[i], model.yaw_factor[i], true_prop_area,
-                               mdrag_coef);
+                               mdrag_coef, (model.rev_mask.get() & (1U << i)) != 0);
     }
 
     if (is_zero(model.moment_of_inertia.x) || is_zero(model.moment_of_inertia.y) || is_zero(model.moment_of_inertia.z)) {

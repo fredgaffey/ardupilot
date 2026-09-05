@@ -133,7 +133,7 @@ public:
     void setup_params(uint16_t _pwm_min, uint16_t _pwm_max, float _spin_min, float _spin_max, float _expo, float _slew_max,
                       float _diagonal_size, float _power_factor, float _voltage_max, float _effective_prop_area,
                       float _velocity_max, Vector3f _position, Vector3f _thrust_vector, float _yaw_factor,
-                      float _true_prop_area, float _momentum_drag_coefficient);
+                      float _true_prop_area, float _momentum_drag_coefficient, bool _mot_3d);
 
     // override slew limit
     void set_slew_max(float _slew_max) {
@@ -162,6 +162,9 @@ private:
     float true_prop_area;
     float momentum_drag_coefficient;
     float diagonal_size;
+
+    // motor is driven by a reversible (3D-mode) ESC
+    bool mot_3d_enable;
 
     float last_command;
     uint64_t last_calc_us;

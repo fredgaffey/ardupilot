@@ -35,7 +35,10 @@ void Motor::calculate_forces(const struct sitl_input &input,
 
     const float pwm = input.servos[motor_offset+servo];
     float command;
-    float thrust_sign = 1;
+    // sign of thrust due to blade pitch (variable-pitch rotors only)
+    float pitch_sign = 1;
+    // sign of thrust due to rotation direction (3D/reversible ESCs only)
+    float rotation_sign = 1;
     if (rsc_servo >= 0) {
         // variable-pitch rotor; the motor's servo channel commands
         // blade pitch about mid-PWM and rotor speed comes from the
@@ -46,12 +49,25 @@ void Motor::calculate_forces(const struct sitl_input &input,
         const float rotor_speed = constrain_float((input.servos[motor_offset+rsc_servo]-1000)*0.002, 0, 1);
         const float collective = constrain_float((pwm-1500)*0.002, -1, 1);
         if (is_negative(collective)) {
-            thrust_sign = -1;
+            pitch_sign = -1;
         }
         command = fabsf(collective) * sq(rotor_speed);
+    } else if (mot_3d_enable) {
+        // reversible (3D-mode) ESC: PWM is bipolar about 1500
+        // (1000 = full reverse, 1500 = stop, 2000 = full forward).
+        // Rotation direction comes from which half the PWM is in; the
+        // magnitude is folded back into the normal 1000-2000 window so
+        // the usual spin_min/spin_max semantics apply per direction.
+        // Note: the slew limiter below acts on the folded magnitude, so
+        // prop spin-down/up through zero is not modelled.
+        if (pwm < 1500) {
+            rotation_sign = -1;
+        }
+        command = pwm_to_command(1000 + 2 * fabsf(pwm - 1500));
     } else {
         command = pwm_to_command(pwm);
     }
+    const float thrust_sign = pitch_sign * rotation_sign;
     float voltage_scale = voltage / voltage_max;
 
     if (voltage_scale < 0.1) {
@@ -90,6 +106,11 @@ void Motor::calculate_forces(const struct sitl_input &input,
     // thrust
     const float yaw_scale = 0.05 * diagonal_size * motor_thrust * thrust_sign;
     Vector3f rotor_torque = thrust_vector * yaw_factor * command * yaw_scale * -1.0;
+
+    // drag torque follows rotation direction: a 3D ESC reverses the motor's
+    // rotation for reverse thrust, so the torque reaction on the frame
+    // reverses with it (a variable-pitch rotor never reverses rotation)
+    rotor_torque *= rotation_sign;
 
     // thrust in bodyframe NED
     thrust = thrust_vector * motor_thrust;
@@ -184,12 +205,13 @@ float Motor::get_current(void) const
 void Motor::setup_params(uint16_t _pwm_min, uint16_t _pwm_max, float _spin_min, float _spin_max, float _expo, float _slew_max,
                          float _diagonal_size, float _power_factor, float _voltage_max, float _effective_prop_area,
                          float _velocity_max, Vector3f _position, Vector3f _thrust_vector, float _yaw_factor, 
-                         float _true_prop_area, float _momentum_drag_coefficient)
+                         float _true_prop_area, float _momentum_drag_coefficient, bool _mot_3d)
 {
     mot_pwm_min = _pwm_min;
     mot_pwm_max = _pwm_max;
     mot_spin_min = _spin_min;
     mot_spin_max = _spin_max;
+    mot_3d_enable = _mot_3d;
     mot_expo = _expo;
     slew_max = _slew_max;
     power_factor = _power_factor;
